@@ -42,13 +42,12 @@ static int nr_results = G_N_ELEMENTS(results);
 #define PLUGIN_NAME "raw_file_rgb565_load"
 #define ERROR	-1
 
+#define SIZE_DIM 2
 struct raw_data {
-    guint width;
-    guint height;
+    guint size[SIZE_DIM];
 };
 static struct raw_data Image_input_data = {
-    .width = 640,
-    .height = 480,
+    .size = {640, 480},
 };
 
 static gint32 open_raw(char* filename);
@@ -179,16 +178,16 @@ static gint32 load_raw(char* filename, FILE* file) {
     GimpDrawable* drawable;
     GimpPixelRgn pixel_rgn;
 
-    guint width = Image_input_data.width;
-    guint height = Image_input_data.height;
-
+    guint width = Image_input_data.size[0];
+    guint height = Image_input_data.size[1];
+    if (width <= 0 || height <= 0) {
+	return ERROR;
+    }
     img = create_new_image(filename, NULL, width, height, GIMP_RGB, &layer,
-							&drawable, &pixel_rgn);
-    /*
-    tile_height = gimp_tile_height ();
-    dst = (unsigned char *)g_malloc (width * tile_height * 3);
-    if (!dst) return ERROR;
-    */
+						    &drawable, &pixel_rgn);
+    /* TODO: read file to img */
+
+    return img;
 }
 
 static gint32 create_new_layer(
@@ -246,7 +245,7 @@ static gint32 create_new_image(
 ) {
   gint32 img;
 
-  img = gimp_image_new (width, height, bas_type);
+  img = gimp_image_new(width, height, bas_type);
 
   gimp_image_undo_disable(img);
   gimp_image_set_filename(img, filename);
@@ -263,7 +262,11 @@ static gint32 create_new_image(
  * ===========================================================================
  */
 
-gint Dialog_result_ok;
+struct load_dlg_data {
+    GtkWidget *id;
+    GtkWidget *size[SIZE_DIM];
+    gint       result_ok;
+};
 
 static void show_message(char *msg)
 {
@@ -282,35 +285,68 @@ static void load_on_close(GtkWidget *widget, gpointer data)
 
 static void load_on_ok(GtkWidget *widget, gpointer data)
 {
-    /* TODO */
-    //gtk_widget_destroy(GTK_WIDGET(vals->dialog));
+    struct load_dlg_data* dlg_data;
+    int i;
 
-    gtk_main_quit();
+    if (data == NULL) {
+	gtk_main_quit();
+	return;
+    }
+    dlg_data = (struct load_dlg_data *) data;
+
+    for (i = 0; i < SIZE_DIM; i++) {
+	gint s_i;
+	if (sscanf(
+		gtk_entry_get_text(GTK_ENTRY(dlg_data->size[i])), "%d", &s_i
+	    ) > 0
+	) {
+	    guint s_ui;
+	    if (s_i < 0) {
+		s_ui = 0;
+	    } else {
+		s_ui = s_i;
+	    }
+	    Image_input_data.size[i] = s_ui;
+	}
+    }
+
+    gtk_widget_destroy(GTK_WIDGET(dlg_data->id));
+    dlg_data->result_ok = TRUE;
+
     return;
 }
 
 
 static void load_on_cancel(GtkWidget *widget, gpointer data)
 {
-    Dialog_result_ok = FALSE;
+    struct load_dlg_data* dlg_data;
+
     gtk_main_quit();
+    if (data == NULL) {
+	return;
+    }
+    dlg_data = (struct load_dlg_data *) data;
+    dlg_data->result_ok = FALSE;
     return;
 }
 
 static gint load_dialog(void)
 {
+    int i;
     GtkWidget *dlg;
-    GtkWidget *button;
+    GtkWidget *wgt;
     gchar **argv = g_new(gchar*, 1);
     gint argc = 1;
+    struct load_dlg_data dlg_data;
+    static char *labs[] = {"Width", "Height"};
 
     argv[0] = g_strdup("load");
     gtk_init (&argc, &argv);
     gtk_rc_parse(gimp_gtkrc());
     gdk_set_use_xshm(TRUE);
 
-    dlg = gtk_dialog_new();
-    Dialog_result_ok = TRUE;
+    dlg_data.id = gtk_dialog_new();
+    dlg = dlg_data.id;
 
     gtk_window_set_title(GTK_WINDOW (dlg), "Load raw image");
     gtk_window_position(GTK_WINDOW (dlg), GTK_WIN_POS_MOUSE);
@@ -318,28 +354,53 @@ static gint load_dialog(void)
 				  (GtkSignalFunc) load_on_close, NULL);
 
     /* OK button */
-    button = gtk_button_new_with_label("OK");
-    GTK_WIDGET_SET_FLAGS(button, GTK_CAN_DEFAULT);
-    gtk_signal_connect(GTK_OBJECT (button), "clicked",
-				      (GtkSignalFunc) load_on_ok, NULL);
-    gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dlg)->action_area), button,
+    wgt = gtk_button_new_with_label("OK");
+    GTK_WIDGET_SET_FLAGS(wgt, GTK_CAN_DEFAULT);
+    gtk_signal_connect(GTK_OBJECT (wgt), "clicked",
+				      (GtkSignalFunc) load_on_ok, &dlg_data);
+    gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dlg)->action_area), wgt,
 							      TRUE, TRUE, 0);
-    gtk_widget_grab_default(button);
-    gtk_widget_show(button);
+    gtk_widget_grab_default(wgt);
+    gtk_widget_show(wgt);
 
     /* Cancel button */
-    button = gtk_button_new_with_label("Cancel");
-    GTK_WIDGET_SET_FLAGS(button, GTK_CAN_DEFAULT);
-    gtk_signal_connect(GTK_OBJECT (button), "clicked",
-				      (GtkSignalFunc) load_on_cancel, NULL);
-    gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dlg)->action_area), button,
+    wgt = gtk_button_new_with_label("Cancel");
+    GTK_WIDGET_SET_FLAGS(wgt, GTK_CAN_DEFAULT);
+    gtk_signal_connect(GTK_OBJECT (wgt), "clicked",
+				  (GtkSignalFunc) load_on_cancel, &dlg_data);
+    gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dlg)->action_area), wgt,
 							      TRUE, TRUE, 0);
-    gtk_widget_grab_default(button);
-    gtk_widget_show(button);
+    gtk_widget_grab_default(wgt);
+    gtk_widget_show(wgt);
+
+    /* Width and Height */
+    wgt = gtk_table_new(2, SIZE_DIM, FALSE);
+    gtk_table_set_row_spacings(GTK_TABLE(wgt), 3);
+    gtk_table_set_col_spacings(GTK_TABLE(wgt), 3);
+    gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dlg)->vbox), wgt, TRUE, TRUE, 0);
+    gtk_widget_show(wgt);
+
+    for (i = 0; i < SIZE_DIM; i++) {
+	char init_size[16];
+
+	GtkWidget *label = gtk_label_new(labs[i]);
+	gtk_misc_set_alignment(GTK_MISC(label), 0.0, 0.5);
+	gtk_table_attach(GTK_TABLE(wgt), label, 0, 1, i, i+1, GTK_FILL,
+							    GTK_FILL, 0, 0);
+	gtk_widget_show(label);
+
+	dlg_data.size[i] = gtk_entry_new();
+	gtk_widget_set_usize(dlg_data.size[i], 35, 0);
+	sprintf(init_size, "%d", (int) Image_input_data.size[i]);
+	gtk_entry_set_text(GTK_ENTRY(dlg_data.size[i]), init_size);
+	gtk_table_attach(GTK_TABLE(wgt), dlg_data.size[i], 1, 2, i, i+1,
+                      GTK_EXPAND | GTK_FILL, GTK_EXPAND | GTK_FILL, 0, 0);
+	gtk_widget_show(dlg_data.size[i]);
+    }
 
     gtk_widget_show(dlg);
     gtk_main();
     gdk_flush();
 
-    return Dialog_result_ok;
+    return dlg_data.result_ok;
 }

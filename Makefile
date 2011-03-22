@@ -5,7 +5,7 @@ NAME   := raw-file-rgb565-load
 .PHONY: image
 .PHONY: install
 .PHONY: uninstall
-all: image install
+all: install
 
 image: $(TARGET)
 
