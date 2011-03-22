@@ -3,8 +3,7 @@
 #include <string.h>
 
 #include <libgimp/gimp.h>
-
-#include "gtk/gtk.h"
+#include <gtk/gtk.h>
 
 static void query (void);
 static void run(
@@ -67,6 +66,7 @@ static gint32 create_new_image(
 	GimpPixelRgn       *pixel_rgn
 );
 static void show_message(char *msg);
+static gint load_dialog(void);
 
 static void query (void)
 {
@@ -88,7 +88,7 @@ static void query (void)
 
 static GimpRunMode l_run_mode;
 
-static void run (
+static void run(
     const gchar*      name,
     gint              nparams,
     const GimpParam*  param,
@@ -97,7 +97,6 @@ static void run (
 ) {
     static GimpParam values[2];
     GimpRunMode run_mode;
-    GimpPDBStatusType status = GIMP_PDB_SUCCESS;
     gint32 img = ERROR;
 
     l_run_mode = run_mode = param[0].data.d_int32;
@@ -118,12 +117,13 @@ static void run (
 	    /*  Possibly retrieve data  */
 	    gimp_get_data(PLUGIN_NAME, &Image_input_data);
 
-	    // TODO if (!load_dialog ()) return;
+	    if (!load_dialog())
+		goto exec_error;
 	    break;
 
         case GIMP_RUN_NONINTERACTIVE:
 	    /* TODO */
-	    status = GIMP_PDB_CALLING_ERROR;
+	    goto call_error;
 	    break;
 
 	case GIMP_RUN_WITH_LAST_VALS:
@@ -131,24 +131,28 @@ static void run (
 	    break;
 	}
     }
-    if (status == GIMP_PDB_SUCCESS) {
-	img = open_raw(param[1].data.d_string);
 
-	status = (img != ERROR) ? GIMP_PDB_SUCCESS : GIMP_PDB_EXECUTION_ERROR;
+    img = open_raw(param[1].data.d_string);
 
-	if (status == GIMP_PDB_SUCCESS) {
-	    if (run_mode != GIMP_RUN_INTERACTIVE) {
-		/* Clean image */
-		gimp_image_clean_all(img);
-	    } else {
-		/* Save new values */
-		gimp_set_data(PLUGIN_NAME, &Image_input_data,
-						   sizeof (struct raw_data));
-	    }
-	}
+    if (img == ERROR)
+	goto exec_error;
+
+    if (run_mode != GIMP_RUN_INTERACTIVE) {
+	gimp_image_clean_all(img);
+    } else {
+	gimp_set_data(PLUGIN_NAME, &Image_input_data, sizeof(struct raw_data));
     }
-    values[0].data.d_status = status;
+    values[0].data.d_status = GIMP_PDB_SUCCESS;
     values[1].data.d_image = img;
+    return;
+
+call_error:
+    values[0].data.d_status = GIMP_PDB_EXECUTION_ERROR;
+    return;
+
+exec_error:
+    values[0].data.d_status = GIMP_PDB_EXECUTION_ERROR;
+    return;
 }
 
 
@@ -166,7 +170,7 @@ static gint32 open_raw(char* filename)
     img = load_raw(filename, file);
     fclose (file);
 
-    return (img);
+    return img;
 }
 
 static gint32 load_raw(char* filename, FILE* file) {
@@ -253,6 +257,14 @@ static gint32 create_new_image(
   return img;
 }
 
+/*
+ * ===========================================================================
+ * GTK part
+ * ===========================================================================
+ */
+
+gint Dialog_result_ok;
+
 static void show_message(char *msg)
 {
     /*
@@ -261,4 +273,73 @@ static void show_message(char *msg)
     else
     */
 	fprintf (stderr, "Import-raw: %s\n", msg);
+}
+
+static void load_on_close(GtkWidget *widget, gpointer data)
+{
+    gtk_main_quit();
+}
+
+static void load_on_ok(GtkWidget *widget, gpointer data)
+{
+    /* TODO */
+    //gtk_widget_destroy(GTK_WIDGET(vals->dialog));
+
+    gtk_main_quit();
+    return;
+}
+
+
+static void load_on_cancel(GtkWidget *widget, gpointer data)
+{
+    Dialog_result_ok = FALSE;
+    gtk_main_quit();
+    return;
+}
+
+static gint load_dialog(void)
+{
+    GtkWidget *dlg;
+    GtkWidget *button;
+    gchar **argv = g_new(gchar*, 1);
+    gint argc = 1;
+
+    argv[0] = g_strdup("load");
+    gtk_init (&argc, &argv);
+    gtk_rc_parse(gimp_gtkrc());
+    gdk_set_use_xshm(TRUE);
+
+    dlg = gtk_dialog_new();
+    Dialog_result_ok = TRUE;
+
+    gtk_window_set_title(GTK_WINDOW (dlg), "Load raw image");
+    gtk_window_position(GTK_WINDOW (dlg), GTK_WIN_POS_MOUSE);
+    gtk_signal_connect(GTK_OBJECT (dlg), "destroy",
+				  (GtkSignalFunc) load_on_close, NULL);
+
+    /* OK button */
+    button = gtk_button_new_with_label("OK");
+    GTK_WIDGET_SET_FLAGS(button, GTK_CAN_DEFAULT);
+    gtk_signal_connect(GTK_OBJECT (button), "clicked",
+				      (GtkSignalFunc) load_on_ok, NULL);
+    gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dlg)->action_area), button,
+							      TRUE, TRUE, 0);
+    gtk_widget_grab_default(button);
+    gtk_widget_show(button);
+
+    /* Cancel button */
+    button = gtk_button_new_with_label("Cancel");
+    GTK_WIDGET_SET_FLAGS(button, GTK_CAN_DEFAULT);
+    gtk_signal_connect(GTK_OBJECT (button), "clicked",
+				      (GtkSignalFunc) load_on_cancel, NULL);
+    gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dlg)->action_area), button,
+							      TRUE, TRUE, 0);
+    gtk_widget_grab_default(button);
+    gtk_widget_show(button);
+
+    gtk_widget_show(dlg);
+    gtk_main();
+    gdk_flush();
+
+    return Dialog_result_ok;
 }

@@ -7,7 +7,9 @@ NAME   := raw-file-rgb565-load
 .PHONY: uninstall
 all: image install
 
-image:
+image: $(TARGET)
+
+$(TARGET): $(TARGET).c
 	gimptool-2.0 --build $(TARGET).c
 
 install:
