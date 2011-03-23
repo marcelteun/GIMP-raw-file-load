@@ -82,7 +82,7 @@ static void query (void)
 	nr_args, nr_results, args, results
     );
 
-    gimp_register_load_handler(PLUGIN_NAME, "raw, 565", "");
+    gimp_register_load_handler(PLUGIN_NAME, "565.raw, 565", "");
 }
 
 static GimpRunMode l_run_mode;
@@ -173,10 +173,14 @@ static gint32 open_raw(char* filename)
 }
 
 static gint32 load_raw(char* filename, FILE* file) {
+    gint nr_chls;
+    gint x, y;
     gint32 img;
     gint32 layer;
     GimpDrawable* drawable;
     GimpPixelRgn pixel_rgn;
+    guchar *pix_row;
+    guchar c;
 
     guint width = Image_input_data.size[0];
     guint height = Image_input_data.size[1];
@@ -186,6 +190,33 @@ static gint32 load_raw(char* filename, FILE* file) {
     img = create_new_image(filename, NULL, width, height, GIMP_RGB, &layer,
 						    &drawable, &pixel_rgn);
     /* TODO: read file to img */
+    nr_chls = gimp_drawable_bpp(drawable->drawable_id);
+    pix_row = g_new(guchar, nr_chls * width);
+    x = 0;
+    y = 0;
+    while (1) {
+        guchar r, g, b;
+	/* read (least significant) part of GREEN and BLUE */
+        if ((c = fgetc(file)) == EOF) break;
+	g = (c & 0xe0) >> 3;
+	b = (c & 0x1f) << 3;
+	/* read RED and (most significant) part of GREEN */
+        if ((c = fgetc(file)) == EOF) break;
+	r = c & 0xf8;
+	g = g | (c & 0x07) << 5;
+	pix_row[nr_chls * x] = r;
+	pix_row[nr_chls * x + 1] = g;
+	pix_row[nr_chls * x + 2] = b;
+	x++;
+	if (x == width) {
+	    gimp_pixel_rgn_set_row (&pixel_rgn, pix_row, 0, y, width);
+	    x = 0;
+	    y++;
+	}
+	if (y == height) break;
+    }
+    if (c == EOF)           return ERROR;
+    if (fgetc(file) != EOF) return ERROR;
 
     return img;
 }
