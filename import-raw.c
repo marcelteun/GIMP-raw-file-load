@@ -5,8 +5,8 @@
 #include <libgimp/gimp.h>
 #include <gtk/gtk.h>
 
-static void query (void);
-static void run(
+static void query_565(void);
+static void run_565(
     const gchar*      name,
     gint              nparams,
     const GimpParam*  param,
@@ -18,8 +18,8 @@ GimpPlugInInfo PLUG_IN_INFO =
 {
   .init_proc = NULL,
   .quit_proc = NULL,
-  .query_proc = query,
-  .run_proc = run
+  .query_proc = query_565,
+  .run_proc = run_565
 };
 
 MAIN()
@@ -46,28 +46,36 @@ static int nr_results = G_N_ELEMENTS(results);
 struct raw_data {
     guint size[SIZE_DIM];
 };
+
+#define IDX_RED		0
+#define IDX_GREEN	1
+#define IDX_BLUE	2
+
+enum pix_fmt {
+	RGB_565 = 0,
+	RGBA_5551,
+	RGBA_4444,
+	RGB_888,
+	RGBX_8888,
+	RGBA_8888,
+	YCbCr_422,
+	nr_of_pix_fmts,
+};
+
 static struct raw_data Image_input_data = {
     .size = {640, 480},
 };
 
-static gint32 open_raw(char* filename);
-static gint32 load_raw(char* filename, FILE* file);
-static gint32 create_new_image(
-	const gchar        *filename,
-	const gchar        *layername,
-	guint               width,
-	guint               height,
-	GimpImageBaseType   bas_type,
-	//gdouble             xres,
-	//gdouble             yres,
-	gint32             *layer,
-	GimpDrawable      **drawable,
-	GimpPixelRgn       *pixel_rgn
+static void run(
+    const gchar*      name,
+    gint              nparams,
+    const GimpParam*  param,
+    gint*             nreturn_vals,
+    GimpParam**       return_vals,
+    enum pix_fmt      fmt
 );
-static void show_message(char *msg);
-static gint load_dialog(void);
 
-static void query (void)
+static void query_565(void)
 {
     gimp_install_procedure(
 	PLUGIN_NAME,
@@ -82,209 +90,17 @@ static void query (void)
 	nr_args, nr_results, args, results
     );
 
-    gimp_register_load_handler(PLUGIN_NAME, "565.raw, 565", "");
+    gimp_register_load_handler(PLUGIN_NAME, "RGB-565, 565", "");
 }
 
-static GimpRunMode l_run_mode;
-
-static void run(
+static void run_565(
     const gchar*      name,
     gint              nparams,
     const GimpParam*  param,
     gint*             nreturn_vals,
     GimpParam**       return_vals
 ) {
-    static GimpParam values[2];
-    GimpRunMode run_mode;
-    gint32 img = ERROR;
-
-    l_run_mode = run_mode = param[0].data.d_int32;
-
-    values[0].type = GIMP_PDB_STATUS;
-    values[0].data.d_status = GIMP_PDB_SUCCESS;
-    *return_vals = values;
-    *nreturn_vals = 1;
-
-    if (strcmp(name, PLUGIN_NAME) == 0) {
-	*nreturn_vals = 2;
-	values[1].type = GIMP_PDB_IMAGE;
-	values[1].data.d_image = ERROR;
-
-	switch (run_mode)
-	{
-	case GIMP_RUN_INTERACTIVE:
-	    /*  Possibly retrieve data  */
-	    gimp_get_data(PLUGIN_NAME, &Image_input_data);
-
-	    if (!load_dialog())
-		goto exec_error;
-	    break;
-
-        case GIMP_RUN_NONINTERACTIVE:
-	    /* TODO */
-	    goto call_error;
-	    break;
-
-	case GIMP_RUN_WITH_LAST_VALS:
-	    gimp_get_data(PLUGIN_NAME, &Image_input_data);
-	    break;
-	}
-    }
-
-    img = open_raw(param[1].data.d_string);
-
-    if (img == ERROR)
-	goto exec_error;
-
-    if (run_mode != GIMP_RUN_INTERACTIVE) {
-	gimp_image_clean_all(img);
-    } else {
-	gimp_set_data(PLUGIN_NAME, &Image_input_data, sizeof(struct raw_data));
-    }
-    values[0].data.d_status = GIMP_PDB_SUCCESS;
-    values[1].data.d_image = img;
-    return;
-
-call_error:
-    values[0].data.d_status = GIMP_PDB_EXECUTION_ERROR;
-    return;
-
-exec_error:
-    values[0].data.d_status = GIMP_PDB_EXECUTION_ERROR;
-    return;
-}
-
-
-static gint32 open_raw(char* filename)
-{
-    gint32 img;
-    FILE *file;
-
-    file = fopen(filename, "rb");
-    if (!file)
-    {
-	show_message("can't open file for reading");
-	return(ERROR);
-    }
-    img = load_raw(filename, file);
-    fclose (file);
-
-    return img;
-}
-
-static gint32 load_raw(char* filename, FILE* file) {
-    gint nr_chls;
-    gint x, y;
-    gint32 img;
-    gint32 layer;
-    GimpDrawable* drawable;
-    GimpPixelRgn pixel_rgn;
-    guchar *pix_row;
-    guchar c;
-
-    guint width = Image_input_data.size[0];
-    guint height = Image_input_data.size[1];
-    if (width <= 0 || height <= 0) {
-	return ERROR;
-    }
-    img = create_new_image(filename, NULL, width, height, GIMP_RGB, &layer,
-						    &drawable, &pixel_rgn);
-    /* TODO: read file to img */
-    nr_chls = gimp_drawable_bpp(drawable->drawable_id);
-    pix_row = g_new(guchar, nr_chls * width);
-    x = 0;
-    y = 0;
-    while (1) {
-        guchar r, g, b;
-	/* read (least significant) part of GREEN and BLUE */
-        if ((c = fgetc(file)) == EOF) break;
-	g = (c & 0xe0) >> 3;
-	b = (c & 0x1f) << 3;
-	/* read RED and (most significant) part of GREEN */
-        if ((c = fgetc(file)) == EOF) break;
-	r = c & 0xf8;
-	g = g | (c & 0x07) << 5;
-	pix_row[nr_chls * x] = r;
-	pix_row[nr_chls * x + 1] = g;
-	pix_row[nr_chls * x + 2] = b;
-	x++;
-	if (x == width) {
-	    gimp_pixel_rgn_set_row (&pixel_rgn, pix_row, 0, y, width);
-	    x = 0;
-	    y++;
-	}
-	if (y == height) break;
-    }
-    if (c == EOF)           return ERROR;
-    if (fgetc(file) != EOF) return ERROR;
-
-    return img;
-}
-
-static gint32 create_new_layer(
-    gint32              img,
-    gint                position,
-    const gchar        *layername,
-    guint               width,
-    guint               height,
-    GimpImageBaseType   bas_type,
-    GimpDrawable      **drawable,
-    GimpPixelRgn       *pixel_rgn)
-{
-    gint32        layer;
-    GimpImageType img_type = GIMP_RGB_IMAGE;
-
-    switch (bas_type)
-    {
-	case GIMP_RGB:
-	    img_type = GIMP_RGB_IMAGE;
-	    break;
-	case GIMP_GRAY:
-	    img_type = GIMP_GRAY_IMAGE;
-	    break;
-	case GIMP_INDEXED:
-	    img_type = GIMP_INDEXED_IMAGE;
-	    break;
-    }
-
-    if (!layername) {
-	layername = "background";
-    }
-
-    layer = gimp_layer_new(img, layername, width, height, img_type, 100,
-							    GIMP_NORMAL_MODE);
-    gimp_image_add_layer(img, layer, position);
-
-    *drawable = gimp_drawable_get(layer);
-    gimp_pixel_rgn_init(pixel_rgn, *drawable, 0, 0, (*drawable)->width,
-					    (*drawable)->height, TRUE, FALSE);
-
-    return layer;
-}
-
-static gint32 create_new_image(
-	const gchar        *filename,
-	const gchar        *layername,
-	guint               width,
-	guint               height,
-	GimpImageBaseType   bas_type,
-	//gdouble             xres,
-	//gdouble             yres,
-	gint32             *layer,
-	GimpDrawable      **drawable,
-	GimpPixelRgn       *pixel_rgn
-) {
-  gint32 img;
-
-  img = gimp_image_new(width, height, bas_type);
-
-  gimp_image_undo_disable(img);
-  gimp_image_set_filename(img, filename);
-  //gimp_image_set_resolution(img, xres, yres);
-
-  *layer = create_new_layer(img, 0, layername, width, height, bas_type,
-							drawable, pixel_rgn);
-  return img;
+    run(name, nparams, param, nreturn_vals, return_vals, RGB_565);
 }
 
 /*
@@ -301,12 +117,7 @@ struct load_dlg_data {
 
 static void show_message(char *msg)
 {
-    /*
-    if (l_run_mode == GIMP_RUN_INTERACTIVE)
-	gtk_message_box(msg);
-    else
-    */
-	fprintf (stderr, "Import-raw: %s\n", msg);
+    fprintf (stderr, "Import-raw: %s\n", msg);
 }
 
 static void load_on_close(GtkWidget *widget, gpointer data)
@@ -434,4 +245,227 @@ static gint load_dialog(void)
     gdk_flush();
 
     return dlg_data.result_ok;
+}
+
+/*
+ * ===========================================================================
+ * PLUG IN implementation
+ * ===========================================================================
+ */
+
+static gint32 create_new_layer(
+    gint32              img,
+    gint                position,
+    const gchar        *layername,
+    guint               width,
+    guint               height,
+    GimpImageBaseType   bas_type,
+    GimpDrawable      **drawable,
+    GimpPixelRgn       *pixel_rgn)
+{
+    gint32        layer;
+    GimpImageType img_type = GIMP_RGB_IMAGE;
+
+    /* TODO: add support for GIMP_RGBA_IMAGE in case of RGBA888 */
+    switch (bas_type)
+    {
+	case GIMP_RGB:
+	    img_type = GIMP_RGB_IMAGE;
+	    break;
+	case GIMP_GRAY:
+	    img_type = GIMP_GRAY_IMAGE;
+	    break;
+	case GIMP_INDEXED:
+	    img_type = GIMP_INDEXED_IMAGE;
+	    break;
+    }
+
+    if (!layername) {
+	layername = "background";
+    }
+
+    layer = gimp_layer_new(img, layername, width, height, img_type, 100,
+							    GIMP_NORMAL_MODE);
+    gimp_image_add_layer(img, layer, position);
+
+    *drawable = gimp_drawable_get(layer);
+    gimp_pixel_rgn_init(pixel_rgn, *drawable, 0, 0, (*drawable)->width,
+					    (*drawable)->height, TRUE, FALSE);
+
+    return layer;
+}
+
+static gint32 create_new_image(
+	const gchar        *filename,
+	const gchar        *layername,
+	guint               width,
+	guint               height,
+	GimpImageBaseType   bas_type,
+	//gdouble             xres,
+	//gdouble             yres,
+	gint32             *layer,
+	GimpDrawable      **drawable,
+	GimpPixelRgn       *pixel_rgn
+) {
+  gint32 img;
+
+  img = gimp_image_new(width, height, bas_type);
+
+  gimp_image_undo_disable(img);
+  gimp_image_set_filename(img, filename);
+  //gimp_image_set_resolution(img, xres, yres);
+
+  *layer = create_new_layer(img, 0, layername, width, height, bas_type,
+							drawable, pixel_rgn);
+  return img;
+}
+
+static guchar read_rgb_pixel(FILE* file, enum pix_fmt fmt, guchar rgb[3]) {
+/*
+ * returns ERROR if an EOF occurred or if the fmt is not supported
+ */
+    guchar c;
+    switch (fmt) {
+    case RGB_565:
+	/* read (least significant) part of GREEN and BLUE */
+        if ((c = fgetc(file)) == EOF) return ERROR;
+	rgb[IDX_GREEN] = (c & 0xe0) >> 3;
+	rgb[IDX_BLUE]  = (c & 0x1f) << 3;
+	/* read RED and (most significant) part of GREEN */
+        if ((c = fgetc(file)) == EOF) return ERROR;
+	rgb[IDX_RED]   = c & 0xf8;
+	rgb[IDX_GREEN] = rgb[1] | (c & 0x07) << 5;
+	break;
+    default:
+	return ERROR;
+	break;
+    }
+}
+
+static gint32 load_raw(char* filename, FILE* file, enum pix_fmt fmt) {
+    gint nr_chls;
+    gint x, y;
+    gint32 img;
+    gint32 layer;
+    GimpDrawable* drawable;
+    GimpPixelRgn pixel_rgn;
+    guchar *pix_row;
+    guchar c;
+
+    guint width = Image_input_data.size[0];
+    guint height = Image_input_data.size[1];
+    if (width <= 0 || height <= 0) {
+	return ERROR;
+    }
+    img = create_new_image(filename, NULL, width, height, GIMP_RGB, &layer,
+						    &drawable, &pixel_rgn);
+    nr_chls = gimp_drawable_bpp(drawable->drawable_id);
+    pix_row = g_new(guchar, nr_chls * width);
+    x = 0;
+    y = 0;
+    while (1) {
+        guchar rgb[3];
+	if (read_rgb_pixel(file, fmt, rgb) == ERROR)
+	    return ERROR;
+	pix_row[nr_chls * x]     = rgb[IDX_RED];
+	pix_row[nr_chls * x + 1] = rgb[IDX_GREEN];
+	pix_row[nr_chls * x + 2] = rgb[IDX_BLUE];
+	x++;
+	if (x == width) {
+	    gimp_pixel_rgn_set_row(&pixel_rgn, pix_row, 0, y, width);
+	    x = 0;
+	    y++;
+	}
+	if (y == height) break;
+    }
+    if (fgetc(file) != EOF) {
+	printf("%s: warning: file contains more data\n", PLUGIN_NAME);
+    }
+
+    return img;
+}
+
+static gint32 open_raw(char* filename, enum pix_fmt fmt)
+{
+    gint32 img;
+    FILE *file;
+
+    file = fopen(filename, "rb");
+    if (!file)
+    {
+	show_message("can't open file for reading");
+	return(ERROR);
+    }
+    img = load_raw(filename, file, fmt);
+    fclose (file);
+
+    return img;
+}
+
+static void run(
+    const gchar*      name,
+    gint              nparams,
+    const GimpParam*  param,
+    gint*             nreturn_vals,
+    GimpParam**       return_vals,
+    enum pix_fmt      fmt
+) {
+    static GimpParam values[2];
+    GimpRunMode run_mode;
+    gint32 img = ERROR;
+
+    run_mode = param[0].data.d_int32;
+
+    values[0].type = GIMP_PDB_STATUS;
+    values[0].data.d_status = GIMP_PDB_SUCCESS;
+    *return_vals = values;
+    *nreturn_vals = 1;
+
+    if (strcmp(name, PLUGIN_NAME) == 0) {
+	*nreturn_vals = 2;
+	values[1].type = GIMP_PDB_IMAGE;
+	values[1].data.d_image = ERROR;
+
+	switch (run_mode)
+	{
+	case GIMP_RUN_INTERACTIVE:
+	    /*  Possibly retrieve data  */
+	    gimp_get_data(PLUGIN_NAME, &Image_input_data);
+
+	    if (!load_dialog())
+		goto exec_error;
+	    break;
+
+        case GIMP_RUN_NONINTERACTIVE:
+	    /* TODO */
+	    goto call_error;
+	    break;
+
+	case GIMP_RUN_WITH_LAST_VALS:
+	    gimp_get_data(PLUGIN_NAME, &Image_input_data);
+	    break;
+	}
+    }
+
+    img = open_raw(param[1].data.d_string, fmt);
+
+    if (img == ERROR)
+	goto exec_error;
+
+    if (run_mode != GIMP_RUN_INTERACTIVE) {
+	gimp_image_clean_all(img);
+    } else {
+	gimp_set_data(PLUGIN_NAME, &Image_input_data, sizeof(struct raw_data));
+    }
+    values[0].data.d_status = GIMP_PDB_SUCCESS;
+    values[1].data.d_image = img;
+    return;
+
+call_error:
+    values[0].data.d_status = GIMP_PDB_EXECUTION_ERROR;
+    return;
+
+exec_error:
+    values[0].data.d_status = GIMP_PDB_EXECUTION_ERROR;
+    return;
 }
