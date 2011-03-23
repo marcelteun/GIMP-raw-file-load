@@ -1,0 +1,20 @@
+Sources used
+------------
+
+http://developer.gimp.org/plug-ins.html
+  specifically: http://developer.gimp.org/api/2.0/
+
+http://www.gimp.org/docs/plug-in/plug-in.html
+
+Other GIMP Plugins:
+http://registry.gimp.org/
+
+git://git.gnome.org/gimp
+http://git.gnome.org/browse/gimp
+
+Makefile:
+http://tech.groups.yahoo.com/group/gimp-developer/message/5136
+"
+plugin: plugin.c
+gcc plugin.c -o plugin `gimptool --cflags --libs`
+"
