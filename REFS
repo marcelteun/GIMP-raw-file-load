@@ -18,3 +18,21 @@ http://tech.groups.yahoo.com/group/gimp-developer/message/5136
 plugin: plugin.c
 gcc plugin.c -o plugin `gimptool --cflags --libs`
 "
+
+
+## From make -p
+# COMPILE.c = $(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
+##
+# OUTPUT_OPTION = -o $@
+##
+# %.o: %.c
+# #  commands to execute (built-in):
+#         $(COMPILE.c) $(OUTPUT_OPTION) $<
+##
+# LINK.c = $(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(TARGET_ARCH)
+# LINK.o = $(CC) $(LDFLAGS) $(TARGET_ARCH)
+##
+# %: %.o
+# #  commands to execute (built-in):
+#         $(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
+

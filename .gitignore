@@ -2,3 +2,5 @@
 *565
 *.patch
 *.swp
+*.o
+*.tgz

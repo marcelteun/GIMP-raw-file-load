@@ -1,19 +1,32 @@
-TARGET := import-raw
-NAME   := raw-file-rgb565-load
+GIMPTOOL ?= gimptool-2.0
+CC ?= gcc
+CFLAGS := $(shell $(GIMPTOOL) --cflags)
+LDLIBS := $(shell $(GIMPTOOL) --libs)
+INSTALL_DIR := $(shell $(GIMPTOOL)  --gimpplugindir)
+
+# my extra flags
+CFLAGS += -Wall
+OBJECTS := import-raw
 
 .PHONY: all
-.PHONY: image
 .PHONY: install
 .PHONY: uninstall
-all: install
+.PHONY: install-admin
+.PHONY: uninstall-admin
 
-image: $(TARGET)
+all: $(OBJECTS)
 
-$(TARGET): $(TARGET).c
-	gimptool-2.0 --build $(TARGET).c
+$(OBJECTS): %: %.o
+	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
-install:
-	gimptool-2.0 --install $(TARGET).c
+install: $(OBJECTS)
+	for OBJ in $^; do $(GIMPTOOL) --install-bin $$OBJ; done
 
 uninstall:
-	gimptool-2.0 --uninstall-bin $(NAME)
+	for OBJ in $(OBJECTS); do $(GIMPTOOL) --uninstall-bin $$OBJ; done
+
+install-admin: $(OBJECTS)
+	for OBJ in $^; do $(GIMPTOOL) --install-admin-bin $$OBJ; done
+
+uninstall-admin:
+	for OBJ in $(OBJECTS); do $(GIMPTOOL) --uninstall-admin-bin $$OBJ; done
