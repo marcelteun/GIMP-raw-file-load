@@ -1,2 +1,49 @@
-The Makefile that is provided was tested on a Ubuntu Linux PC.
-It required that gimptool is installed.
+PLUGIN
+------
+
+These plugins are for loading raw images that use pixel formats like, RGB 565,
+RGB 888, etc.
+
+LICENSE
+-------
+
+Copyright (C) 2011 Marcel Tunnissen
+
+This file implements a GIMP plugin for load raw images in a RGB 888 format
+
+License: GNU Public License version 2
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not,
+check at http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+or write to the Free Software Foundation,
+
+BUILD AND INSTALL: UBUNTU
+-------------------------
+
+1. Requirements
+It is required that gimptool is installed.
+On an Ubuntu PC this is installed by:
+
+$ sudo apt-get install libgimp2.0-dev
+
+2. Make
+
+$ make				will compile the plugins
+$ make install			will install the plugins locally
+$ make uninstall		will uninstall the plugins from local install
+				directory
+$ sudo make install-admin	will install the plugin in the Gimp install
+				directory
+$ sudo make uninstall-admin	will uninstall the plugin from the Gimp install
+				directory
