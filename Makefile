@@ -31,10 +31,12 @@ INCLUDES := $(shell ls *.h)
 
 # my extra flags
 CFLAGS += -Wall
-OBJECTS := file-565.o		\
+OBJECTS :=			\
 	file-raw-load-gtk.o	\
 	file-raw-load.o
-PLUG_INS := file-565
+PLUG_INS :=			\
+	file-565		\
+	file-rgb-888
 
 .PHONY: all
 .PHONY: install

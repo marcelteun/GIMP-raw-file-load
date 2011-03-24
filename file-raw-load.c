@@ -115,6 +115,12 @@ static guchar read_rgb_pixel(FILE* file, enum pix_fmt fmt, guchar rgb[3]) {
 	rgb[IDX_GREEN] = rgb[1] | (c & 0x07) << 5;
 	return OK;
 	break;
+    case RGB_888:
+        if ((rgb[0] = fgetc(file)) == EOF) return ERROR;
+        if ((rgb[1] = fgetc(file)) == EOF) return ERROR;
+        if ((rgb[2] = fgetc(file)) == EOF) return ERROR;
+	return OK;
+	break;
     default:
 	return ERROR;
 	break;
