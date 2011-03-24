@@ -1,3 +1,25 @@
+/* Copyright (C) 2011 Marcel Tunnissen
+ *
+ * This file implements a GIMP plugin for load raw images in a RGB 565 format
+ *
+ * License: GNU Public License version 2
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not,
+ * check at http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+ * or write to the Free Software Foundation,
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,6 +63,7 @@ static int nr_results = G_N_ELEMENTS(results);
 #define PLUGIN_VERSION "2011-03-24"
 #define PLUGIN_NAME "raw_file_rgb565_load"
 #define ERROR	-1
+#define OK	0
 
 #define SIZE_DIM 2
 struct raw_data {
@@ -110,12 +133,13 @@ static void run_565(
  */
 
 struct load_dlg_data {
-    GtkWidget *id;
-    GtkWidget *size[SIZE_DIM];
-    gint       result_ok;
+    GtkWidget*       id;
+    GtkWidget*       size[SIZE_DIM];
+    struct raw_data* img_data;
+    gint             result_ok;
 };
 
-static void show_message(char *msg)
+static void show_message(gchar *msg)
 {
     fprintf (stderr, "Import-raw: %s\n", msg);
 }
@@ -148,7 +172,7 @@ static void load_on_ok(GtkWidget *widget, gpointer data)
 	    } else {
 		s_ui = s_i;
 	    }
-	    Image_input_data.size[i] = s_ui;
+	    dlg_data->img_data->size[i] = s_ui;
 	}
     }
 
@@ -172,15 +196,19 @@ static void load_on_cancel(GtkWidget *widget, gpointer data)
     return;
 }
 
-static gint load_dialog(void)
+static gint load_dialog(struct raw_data* img_data)
 {
     int i;
-    GtkWidget *dlg;
-    GtkWidget *wgt;
-    gchar **argv = g_new(gchar*, 1);
+    GtkWidget* dlg;
+    GtkWidget* wgt;
+    gchar** argv = g_new(gchar*, 1);
     gint argc = 1;
     struct load_dlg_data dlg_data;
     static char *labs[] = {"Width", "Height"};
+
+    if (!img_data) return ERROR;
+
+    dlg_data.img_data = img_data;
 
     argv[0] = g_strdup("load");
     gtk_init (&argc, &argv);
@@ -233,7 +261,7 @@ static gint load_dialog(void)
 
 	dlg_data.size[i] = gtk_entry_new();
 	gtk_widget_set_usize(dlg_data.size[i], 35, 0);
-	sprintf(init_size, "%d", (int) Image_input_data.size[i]);
+	sprintf(init_size, "%d", (int) dlg_data.img_data->size[i]);
 	gtk_entry_set_text(GTK_ENTRY(dlg_data.size[i]), init_size);
 	gtk_table_attach(GTK_TABLE(wgt), dlg_data.size[i], 1, 2, i, i+1,
                       GTK_EXPAND | GTK_FILL, GTK_EXPAND | GTK_FILL, 0, 0);
@@ -256,12 +284,12 @@ static gint load_dialog(void)
 static gint32 create_new_layer(
     gint32              img,
     gint                position,
-    const gchar        *layername,
+    const gchar*        layername,
     guint               width,
     guint               height,
     GimpImageBaseType   bas_type,
-    GimpDrawable      **drawable,
-    GimpPixelRgn       *pixel_rgn)
+    GimpDrawable**      drawable,
+    GimpPixelRgn*       pixel_rgn)
 {
     gint32        layer;
     GimpImageType img_type = GIMP_RGB_IMAGE;
@@ -296,16 +324,16 @@ static gint32 create_new_layer(
 }
 
 static gint32 create_new_image(
-	const gchar        *filename,
-	const gchar        *layername,
+	const gchar*        filename,
+	const gchar*        layername,
 	guint               width,
 	guint               height,
 	GimpImageBaseType   bas_type,
 	//gdouble             xres,
 	//gdouble             yres,
-	gint32             *layer,
-	GimpDrawable      **drawable,
-	GimpPixelRgn       *pixel_rgn
+	gint32*             layer,
+	GimpDrawable**      drawable,
+	GimpPixelRgn*       pixel_rgn
 ) {
   gint32 img;
 
@@ -335,6 +363,7 @@ static guchar read_rgb_pixel(FILE* file, enum pix_fmt fmt, guchar rgb[3]) {
         if ((c = fgetc(file)) == EOF) return ERROR;
 	rgb[IDX_RED]   = c & 0xf8;
 	rgb[IDX_GREEN] = rgb[1] | (c & 0x07) << 5;
+	return OK;
 	break;
     default:
 	return ERROR;
@@ -350,7 +379,6 @@ static gint32 load_raw(char* filename, FILE* file, enum pix_fmt fmt) {
     GimpDrawable* drawable;
     GimpPixelRgn pixel_rgn;
     guchar *pix_row;
-    guchar c;
 
     guint width = Image_input_data.size[0];
     guint height = Image_input_data.size[1];
@@ -432,7 +460,7 @@ static void run(
 	    /*  Possibly retrieve data  */
 	    gimp_get_data(PLUGIN_NAME, &Image_input_data);
 
-	    if (!load_dialog())
+	    if (!load_dialog(&Image_input_data))
 		goto exec_error;
 	    break;
 
