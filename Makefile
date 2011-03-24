@@ -6,7 +6,7 @@ INSTALL_DIR := $(shell $(GIMPTOOL)  --gimpplugindir)
 
 # my extra flags
 CFLAGS += -Wall
-OBJECTS := import-raw
+OBJECTS := file-565
 
 .PHONY: all
 .PHONY: install

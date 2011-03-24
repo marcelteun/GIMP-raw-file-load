@@ -38,7 +38,7 @@ static GimpParamDef results[] =
 };
 static int nr_results = G_N_ELEMENTS(results);
 
-#define PLUGIN_VERSION "0.1"
+#define PLUGIN_VERSION "2011-03-24"
 #define PLUGIN_NAME "raw_file_rgb565_load"
 #define ERROR	-1
 
@@ -79,7 +79,7 @@ static void query_565(void)
 {
     gimp_install_procedure(
 	PLUGIN_NAME,
-	"raw file RGB565 load",
+	"raw file RGB-565 load",
 	"Load raw file in RGB 556 format",
 	"Marcel Tunnissen",
 	"Copyright Marcel Tunnissen",
