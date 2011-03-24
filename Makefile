@@ -23,9 +23,18 @@ CFLAGS := $(shell $(GIMPTOOL) --cflags)
 LDLIBS := $(shell $(GIMPTOOL) --libs)
 INSTALL_DIR := $(shell $(GIMPTOOL)  --gimpplugindir)
 
+# To make it easy, for such a small project I don't think it is needed to
+# create include dependencies files...
+# Though there is a risk that updating the Gimp installation will not trigger
+# rebuilt.
+INCLUDES := $(shell ls *.h)
+
 # my extra flags
 CFLAGS += -Wall
-OBJECTS := file-565
+OBJECTS := file-565.o		\
+	file-raw-load-gtk.o	\
+	file-raw-load.o
+PLUG_INS := file-565
 
 .PHONY: all
 .PHONY: install
@@ -33,19 +42,25 @@ OBJECTS := file-565
 .PHONY: install-admin
 .PHONY: uninstall-admin
 
-all: $(OBJECTS)
+all: $(PLUG_INS)
 
-$(OBJECTS): %: %.o
+%.o: %.c $(INCLUDES)
+	$(COMPILE.c) $(OUTPUT_OPTION) $<
+
+$(PLUG_INS): %: %.o $(OBJECTS)
 	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
-install: $(OBJECTS)
+install: $(PLUG_INS)
 	for OBJ in $^; do $(GIMPTOOL) --install-bin $$OBJ; done
 
 uninstall:
-	for OBJ in $(OBJECTS); do $(GIMPTOOL) --uninstall-bin $$OBJ; done
+	for OBJ in $(PLUG_INS); do $(GIMPTOOL) --uninstall-bin $$OBJ; done
 
-install-admin: $(OBJECTS)
+install-admin: $(PLUG_INS)
 	for OBJ in $^; do $(GIMPTOOL) --install-admin-bin $$OBJ; done
 
 uninstall-admin:
-	for OBJ in $(OBJECTS); do $(GIMPTOOL) --uninstall-admin-bin $$OBJ; done
+	for OBJ in $(PLUG_INS); do $(GIMPTOOL) --uninstall-admin-bin $$OBJ; done
+
+clean:
+	rm -f *.o $(PLUG_INS)
