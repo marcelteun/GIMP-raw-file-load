@@ -26,6 +26,7 @@
 
 #include "file-raw-load.h"
 #include "file-raw-load-gtk.h"
+#include "yuv-convert.h"
 
 #define IDX_RED		0
 #define IDX_GREEN	1
@@ -98,6 +99,35 @@ static gint32 create_new_image(
   return img;
 }
 
+static guchar read_yuv_pixel(FILE* file, enum pix_fmt fmt, guchar yuv[3]) {
+/*
+ * returns ERROR if an EOF occurred or if the fmt is not supported
+ */
+    static guchar yuv_sav[3];
+    static int odd_pixel = FALSE;
+    switch (fmt) {
+    case UYVY_422:
+	if (odd_pixel) {
+	    yuv[0] = yuv_sav[0];
+	    yuv[1] = yuv_sav[1];
+	    yuv[2] = yuv_sav[2];
+	} else {
+	    if ((yuv[1] = fgetc(file)) == EOF) return ERROR;
+	    if ((yuv[0] = fgetc(file)) == EOF) return ERROR;
+	    if ((yuv[2] = fgetc(file)) == EOF) return ERROR;
+	    if ((yuv_sav[0] = fgetc(file)) == EOF) return ERROR;
+	    yuv_sav[1] = yuv[1];
+	    yuv_sav[2] = yuv[2];
+	}
+	odd_pixel = !odd_pixel;
+	return OK;
+	break;
+    default:
+	return ERROR;
+	break;
+    }
+}
+
 static guchar read_rgb_pixel(FILE* file, enum pix_fmt fmt, guchar rgb[3]) {
 /*
  * returns ERROR if an EOF occurred or if the fmt is not supported
@@ -120,6 +150,17 @@ static guchar read_rgb_pixel(FILE* file, enum pix_fmt fmt, guchar rgb[3]) {
         if ((rgb[1] = fgetc(file)) == EOF) return ERROR;
         if ((rgb[2] = fgetc(file)) == EOF) return ERROR;
 	return OK;
+	break;
+    case UYVY_422:
+	{
+	    guchar yuv[3];
+	    if (read_yuv_pixel(file, fmt, yuv) != ERROR) {
+		convert_yuv2rgb(yuv, rgb);
+		return OK;
+	    } else {
+		return ERROR;
+	    }
+	}
 	break;
     default:
 	return ERROR;

@@ -2,7 +2,7 @@ PLUGIN
 ------
 
 These plugins are for loading raw images that use pixel formats like, RGB 565,
-RGB 888, etc.
+RGB 888, YUV 422, and what the future will bring.
 
 LICENSE
 -------

@@ -33,10 +33,12 @@ INCLUDES := $(shell ls *.h)
 CFLAGS += -Wall
 OBJECTS :=			\
 	file-raw-load-gtk.o	\
-	file-raw-load.o
+	file-raw-load.o		\
+	yuv-convert.o
 PLUG_INS :=			\
 	file-565		\
-	file-rgb-888
+	file-rgb-888		\
+	file-uyvy
 
 .PHONY: all
 .PHONY: install

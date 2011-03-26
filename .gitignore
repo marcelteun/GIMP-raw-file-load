@@ -1,6 +1,7 @@
 *raw
 *565
 *888
+*uyvy
 *.patch
 *.swp
 *.o
