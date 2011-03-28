@@ -29,15 +29,18 @@ enum pix_fmt {
 	RGBA_5551,
 	RGBA_4444,
 	RGB_888,
+	BGR_888,
 	RGBX_8888,
 	RGBA_8888,
 	UYVY_422,
+	YUYV_422,
 	nr_of_pix_fmts,
 };
 
 #define SIZE_DIM 2
 struct raw_data {
-    guint size[SIZE_DIM];
+    guint    size[SIZE_DIM];
+    gboolean checked;
 };
 
 void run(

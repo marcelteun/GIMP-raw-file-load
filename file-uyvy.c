@@ -1,6 +1,6 @@
 /* Copyright (C) 2011 Marcel Tunnissen
  *
- * This file implements a GIMP plugin for load raw images in a UYVY 422 format
+ * This file implements a GIMP plugin for load raw images in a YUV 422 format
  *
  * License: GNU Public License version 2
  *
@@ -26,8 +26,8 @@
 
 #include "file-raw-load.h"
 
-static void query_uyuv(void);
-static void run_uyuv(
+static void query_yuv(void);
+static void run_yuv(
     const gchar*      name,
     gint              nparams,
     const GimpParam*  param,
@@ -39,8 +39,8 @@ GimpPlugInInfo PLUG_IN_INFO =
 {
   .init_proc = NULL,
   .quit_proc = NULL,
-  .query_proc = query_uyuv,
-  .run_proc = run_uyuv
+  .query_proc = query_yuv,
+  .run_proc = run_yuv
 };
 
 MAIN()
@@ -60,31 +60,31 @@ static GimpParamDef results[] =
 static int nr_results = G_N_ELEMENTS(results);
 
 #define PLUGIN_VERSION "2011-03-26"
-#define PLUGIN_NAME "raw_file_uyv422_load"
+#define PLUGIN_NAME "raw_file_yuv_422_load"
 
 static struct raw_data Image_input_data = {
     .size = {640, 480},
 };
 
-static void query_uyuv(void)
+static void query_yuv(void)
 {
     gimp_install_procedure(
 	PLUGIN_NAME,
-	"raw file UYVY-422 load",
-	"Load raw file in UYVY 422 format",
+	"raw file YUV-422 load",
+	"Load raw file in YUV 422 format",
 	"Marcel Tunnissen",
 	"Copyright Marcel Tunnissen",
 	PLUGIN_VERSION,
-	"<Load>/UYUV422",
+	"<Load>/YUV422",
 	NULL,
 	GIMP_PLUGIN,
 	nr_args, nr_results, args, results
     );
 
-    gimp_register_load_handler(PLUGIN_NAME, "UYVY-422, uyvy", "");
+    gimp_register_load_handler(PLUGIN_NAME, "UYVY, YUYV, YUV-422, 422", "");
 }
 
-static void run_uyuv(
+static void run_yuv(
     const gchar*      name,
     gint              nparams,
     const GimpParam*  param,

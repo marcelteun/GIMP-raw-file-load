@@ -31,6 +31,7 @@
 struct load_dlg_data {
     GtkWidget*       id;
     GtkWidget*       size[SIZE_DIM];
+    GtkWidget*       checked;
     struct raw_data* img_data;
     gint             result_ok;
 };
@@ -66,6 +67,10 @@ static void load_on_ok(GtkWidget *widget, gpointer data)
 	    dlg_data->img_data->size[i] = s_ui;
 	}
     }
+    if (dlg_data->checked) {
+	dlg_data->img_data->checked = gtk_toggle_button_get_active(
+					GTK_TOGGLE_BUTTON(dlg_data->checked));
+    }
 
     gtk_widget_destroy(GTK_WIDGET(dlg_data->id));
     dlg_data->result_ok = TRUE;
@@ -96,7 +101,7 @@ void show_message(gchar *msg)
     fprintf (stderr, "Import-raw: %s\n", msg);
 }
 
-gint load_dialog(struct raw_data* img_data)
+gint load_dialog(struct raw_data* img_data, gchar* check_button_label)
 {
     int i;
     GtkWidget* dlg;
@@ -144,7 +149,7 @@ gint load_dialog(struct raw_data* img_data)
     gtk_widget_show(wgt);
 
     /* Width and Height */
-    wgt = gtk_table_new(2, SIZE_DIM, FALSE);
+    wgt = gtk_table_new(3, SIZE_DIM, FALSE);
     gtk_table_set_row_spacings(GTK_TABLE(wgt), 3);
     gtk_table_set_col_spacings(GTK_TABLE(wgt), 3);
     gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dlg)->vbox), wgt, TRUE, TRUE, 0);
@@ -166,6 +171,15 @@ gint load_dialog(struct raw_data* img_data)
 	gtk_table_attach(GTK_TABLE(wgt), dlg_data.size[i], 1, 2, i, i+1,
                       GTK_EXPAND | GTK_FILL, GTK_EXPAND | GTK_FILL, 0, 0);
 	gtk_widget_show(dlg_data.size[i]);
+    }
+    if (check_button_label) {
+	dlg_data.checked = gtk_check_button_new_with_mnemonic(
+						    check_button_label);
+	gtk_table_attach(GTK_TABLE(wgt), dlg_data.checked, 0, 1, i, i+1,
+						    GTK_FILL, GTK_FILL, 0, 0);
+	gtk_widget_show(dlg_data.checked);
+    } else {
+	dlg_data.checked = NULL;
     }
 
     gtk_widget_show(dlg);

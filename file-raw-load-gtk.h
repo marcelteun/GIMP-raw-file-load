@@ -25,6 +25,6 @@
 #include "file-raw-load.h"
 
 void show_message(gchar *msg);
-gint load_dialog(struct raw_data* img_data);
+gint load_dialog(struct raw_data* img_data, gchar* check_button_label);
 
 #endif

@@ -122,6 +122,22 @@ static guchar read_yuv_pixel(FILE* file, enum pix_fmt fmt, guchar yuv[3]) {
 	odd_pixel = !odd_pixel;
 	return OK;
 	break;
+    case YUYV_422:
+	if (odd_pixel) {
+	    yuv[0] = yuv_sav[0];
+	    yuv[1] = yuv_sav[1];
+	    yuv[2] = yuv_sav[2];
+	} else {
+	    if ((yuv[0] = fgetc(file)) == EOF) return ERROR;
+	    if ((yuv[1] = fgetc(file)) == EOF) return ERROR;
+	    if ((yuv_sav[0] = fgetc(file)) == EOF) return ERROR;
+	    if ((yuv[2] = fgetc(file)) == EOF) return ERROR;
+	    yuv_sav[1] = yuv[1];
+	    yuv_sav[2] = yuv[2];
+	}
+	odd_pixel = !odd_pixel;
+	return OK;
+	break;
     default:
 	return ERROR;
 	break;
@@ -152,6 +168,8 @@ static guchar read_rgb_pixel(FILE* file, enum pix_fmt fmt, guchar rgb[3]) {
 	return OK;
 	break;
     case UYVY_422:
+	/* intentional fall through */
+    case YUYV_422:
 	{
 	    guchar yuv[3];
 	    if (read_yuv_pixel(file, fmt, yuv) != ERROR) {
@@ -161,6 +179,12 @@ static guchar read_rgb_pixel(FILE* file, enum pix_fmt fmt, guchar rgb[3]) {
 		return ERROR;
 	    }
 	}
+	break;
+    case BGR_888:
+        if ((rgb[2] = fgetc(file)) == EOF) return ERROR;
+        if ((rgb[1] = fgetc(file)) == EOF) return ERROR;
+        if ((rgb[0] = fgetc(file)) == EOF) return ERROR;
+	return OK;
 	break;
     default:
 	return ERROR;
@@ -251,8 +275,9 @@ void run(
     struct raw_data*  img_data
 ) {
     static GimpParam values[2];
-    GimpRunMode run_mode;
-    gint32 img = ERROR;
+    GimpRunMode      run_mode;
+    gchar*           check_button_label;
+    gint32           img                = ERROR;
 
     if (!img_data) goto call_error;
 
@@ -270,8 +295,19 @@ void run(
     case GIMP_RUN_INTERACTIVE:
 	/*  Possibly retrieve data  */
 	gimp_get_data(plugin_name, img_data);
+	switch(fmt) {
+	case RGB_888:
+		check_button_label = "BGR";
+		break;
+	case UYVY_422:
+		check_button_label = "YUYV";
+		break;
+	default:
+		check_button_label = NULL;
+		break;
+	}
 
-	if (!load_dialog(img_data))
+	if (!load_dialog(img_data, check_button_label))
 	    goto exec_error;
 	break;
 
@@ -285,6 +321,18 @@ void run(
 	break;
     }
 
+    if (img_data->checked) {
+	switch(fmt) {
+	case RGB_888:
+		fmt = BGR_888;
+		break;
+	case UYVY_422:
+		fmt = YUYV_422;
+		break;
+	default:
+		break;
+	}
+    }
     img = open_raw(param[1].data.d_string, fmt, img_data, plugin_name);
 
     if (img == ERROR)
