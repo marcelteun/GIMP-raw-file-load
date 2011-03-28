@@ -36,9 +36,9 @@ OBJECTS :=			\
 	file-raw-load.o		\
 	yuv-convert.o
 PLUG_INS :=			\
-	file-565		\
+	file-rgb-565		\
 	file-rgb-888		\
-	file-uyvy
+	file-yuv-422
 
 .PHONY: all
 .PHONY: install
